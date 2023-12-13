@@ -1,250 +1,192 @@
 ﻿#include <iostream>
 #include <fstream>
-#include <cmath>
 #include <vector>
+#include <queue>
+#include <cmath>
 
 using namespace std;
 
-int const wym2 = 9;
-int const wym1 = 9;
+const int wym1 = 20;
+const int wym2 = 20;
 
 struct wektor {
-    int x;
-    int y;
-    double heuryst_value;
-    double identifier;
-    int koszt_ruchu;
+    int x{};
+    int y{};
+    double heuryst_value{};
+    double identifier{};
+    int koszt_ruchu{};
     bool czy_obliczony_koszt = false;
+    bool czy_odwiedzone = false;
+    bool czy_odwiedzone_back = false;
 };
 
-//wektor odwiedzone[wym1 * wym2];
-wektor nie_odwiedzone[wym1 * wym2];
-vector<wektor> odwiedzone;
-vector<wektor> do_odwiedzenia;
-
-double zaokragl_do_dwoch_miejsc(double liczba) {
-    return round(liczba * 100.0) / 100.0;
-}
+struct CompareHeuristic {
+    bool operator()(const wektor& lhs, const wektor& rhs) const {
+        return lhs.heuryst_value > rhs.heuryst_value;
+    }
+};
 
 double heurystyka(int x, int y, int cel_x, int cel_y) {
-    return zaokragl_do_dwoch_miejsc(sqrt(pow((x - cel_x), 2) + pow((y - cel_y), 2)));
+    return sqrt(pow((x - cel_x), 2) + pow((y - cel_y), 2));
 }
 
-bool czy_w_liscie(vector<wektor> lista, wektor element) {
-    for (auto & uuh : lista) {
-        if((uuh.x == element.x) && (uuh.y == element.y))
-            return true;
+int A_star(wektor G[][wym1], int start_x, int start_y, int cel_x, int cel_y) {
+    priority_queue<wektor, vector<wektor>, CompareHeuristic> do_odwiedzenia;
+
+    if (start_x >= wym1 || start_y >= wym1 || start_x < 0 || start_y < 0 || cel_x >= wym1 || cel_y >= wym1 || cel_x < 0 || cel_y < 0) {
+        return 3;
     }
-    return false;
-}
-
-int Oblicz_koszt_ruchu(wektor G[][wym1],wektor element) {
-
-    vector<wektor> lista;
-
-    for (int i = 1; i < 5; i++) {
-        if ((i == 1) && G[element.x][element.y + 1].czy_obliczony_koszt == true && (element.y + 1 <= wym2 - 1) && (G[element.x][element.y + 1].identifier != 5)) { // w górę
-            lista.push_back(G[element.x][element.y + 1]);
-        }
-        i++;
-        if ((i == 2) && G[element.x + 1][element.y].czy_obliczony_koszt == true && (element.x + 1 <= wym1 - 1) && (G[element.x + 1][element.y].identifier != 5)) { // w prawo
-            lista.push_back(G[element.x + 1][element.y]);
-        }
-        i++;
-        if ((i == 3) && G[element.x][element.y - 1].czy_obliczony_koszt == true && (element.y - 1 >= 0) && (G[element.x][element.y - 1].identifier != 5)) { // w dół
-            lista.push_back(G[element.x][element.y - 1]);
-        }
-        i++;
-        if ((i == 4) && G[element.x - 1][element.y].czy_obliczony_koszt == true && (element.x - 1 >= 0) && (G[element.x - 1][element.y].identifier != 5)) { // w lewo
-            lista.push_back(G[element.x - 1][element.y]);
-        }
-        i++;
+    if (G[start_x][start_y].identifier == 5 || G[cel_x][cel_y].identifier == 5) {
+        return 2;
     }
 
-    int naj = lista[0].koszt_ruchu;
+    int x_check;
+    int y_check;
 
-    for (auto& uuh : lista) {
-        if (uuh.koszt_ruchu < naj) {
-            naj = uuh.koszt_ruchu;
+    G[start_x][start_y].koszt_ruchu = 0;
+    G[start_x][start_y].heuryst_value = heurystyka(start_x, start_y, cel_x, cel_y);
+    do_odwiedzenia.push(G[start_x][start_y]);
+
+    while (!do_odwiedzenia.empty()) {
+        wektor current = do_odwiedzenia.top();
+        do_odwiedzenia.pop();
+
+        if (current.x == cel_x && current.y == cel_y) {
+            // Destination reached
+            break;
         }
+
+        for (int i = 1; i <= 4; ++i) {
+            int new_x = current.x;
+            int new_y = current.y;
+
+
+            switch (i) {
+            case 1: // Down
+                new_y -= 1;
+                break;
+            case 2: // Left
+                new_x -= 1;
+                break;
+            case 3: // Up
+                new_y += 1;
+                break;
+            case 4: // Right
+                new_x += 1;
+                break;
+            }
+
+            if (new_x >= 0 && new_x < wym1 && new_y >= 0 && new_y < wym2 &&
+                G[new_x][new_y].identifier != 5 && !G[new_x][new_y].czy_odwiedzone) {
+
+                int new_cost = current.koszt_ruchu + 1;
+
+                if (!G[new_x][new_y].czy_obliczony_koszt || new_cost < G[new_x][new_y].koszt_ruchu) {
+                    G[new_x][new_y].koszt_ruchu = new_cost;
+                    G[new_x][new_y].czy_obliczony_koszt = true;
+                    G[new_x][new_y].heuryst_value = heurystyka(new_x, new_y, cel_x, cel_y) + new_cost;
+                    do_odwiedzenia.push(G[new_x][new_y]);
+                }
+            }
+        }
+        //G[current.x][current.y].identifier = G[current.x][current.y].heuryst_value;
+        G[current.x][current.y].czy_odwiedzone = true;
+        x_check = current.x;
+        y_check = current.y;
+
     }
-    lista.clear();
-    return naj + 1;
 
-}
+    if (do_odwiedzenia.empty() && !(x_check == cel_x && y_check == cel_y)) {
+        return 1;
+    }
 
-void A_star(wektor G[][wym1],int x,int y,int cel_x,int cel_y) {
+    vector<wektor> do_odwiedzenia2;
 
-    int start_x = x;
-    int start_y = y;
+    do_odwiedzenia2.push_back(G[cel_x][cel_y]);
+    //G[cel_x][cel_y].czy_odwiedzone_back = true;
 
-    odwiedzone.push_back(G[x][y]);
+    while (!do_odwiedzenia2.empty()) {
 
-    G[x][y].koszt_ruchu = 0;
-    G[x][y].czy_obliczony_koszt = true;
-
-    while ((x != cel_x) || (y != cel_y)) {
-
-        int point = 1; // to jest tylko wpisywanie wartosci do gridu, po tym trzeba jeszcze wybrać najmniejsza heurystyke 
-
-        /*G[x][y].identifier = 3;*/
-
-        for(int i = 1; i < 5; i++){ 
-            if ((i == 1) && (y + 1 <= wym2 - 1) && (G[x][y + 1].identifier != 5) && czy_w_liscie(odwiedzone, G[x][y + 1]) == false) { // w górę
-                if (G[x][y + 1].czy_obliczony_koszt == false) {
-                    G[x][y + 1].koszt_ruchu = Oblicz_koszt_ruchu(G, G[x][y + 1]);
-                    G[x][y + 1].czy_obliczony_koszt = true;
-                    G[x][y + 1].heuryst_value = heurystyka(x, y + 1, cel_x, cel_y);
-                    G[x][y + 1].heuryst_value = G[x][y + 1].heuryst_value + G[x][y + 1].koszt_ruchu;
-
-                }
-                do_odwiedzenia.push_back(G[x][y + 1]);
-            }
-            i++;
-            if ((i == 2) && (x + 1 <= wym1 - 1) && (G[x + 1][y].identifier != 5) && czy_w_liscie(odwiedzone, G[x + 1][y]) == false) { // w prawo
-                if (G[x + 1][y].czy_obliczony_koszt == false) {
-                    G[x + 1][y].koszt_ruchu = Oblicz_koszt_ruchu(G, G[x + 1][y]);
-                    G[x + 1][y].czy_obliczony_koszt = true;
-                    G[x + 1][y].heuryst_value = heurystyka(x + 1, y, cel_x, cel_y);
-                    G[x + 1][y].heuryst_value = G[x + 1][y].heuryst_value + G[x + 1][y].koszt_ruchu;
-
-                }
-                do_odwiedzenia.push_back(G[x + 1][y]);
-            }
-            i++;
-            if ((i == 3) && (y - 1 >= 0) && (G[x][y - 1].identifier != 5) && czy_w_liscie(odwiedzone, G[x][y - 1]) == false) { // w dół
-                if (G[x][y - 1].czy_obliczony_koszt == false) {
-                    G[x][y - 1].koszt_ruchu = Oblicz_koszt_ruchu(G, G[x][y - 1]);
-                    G[x][y - 1].czy_obliczony_koszt = true;
-                    G[x][y - 1].heuryst_value = heurystyka(x, y - 1, cel_x, cel_y);
-                    G[x][y - 1].heuryst_value = G[x][y - 1].heuryst_value + G[x][y - 1].koszt_ruchu;
-                }
-                do_odwiedzenia.push_back(G[x][y - 1]);
-            }
-            i++;
-            if ((i == 4) && (x - 1 >= 0) && (G[x - 1][y].identifier != 5) && czy_w_liscie(odwiedzone, G[x - 1][y]) == false) { // w lewo
-                if (G[x - 1][y].czy_obliczony_koszt == false) {
-                    G[x - 1][y].koszt_ruchu = Oblicz_koszt_ruchu(G, G[x - 1][y]);
-                    G[x - 1][y].czy_obliczony_koszt = true;
-                    G[x - 1][y].heuryst_value = heurystyka(x - 1, y, cel_x, cel_y);
-                    G[x - 1][y].heuryst_value = G[x - 1][y].heuryst_value + G[x - 1][y].koszt_ruchu;
-                }
-                do_odwiedzenia.push_back(G[x - 1][y]);
-            }
-            i++;
-        }
         int pozycja = 0;
-        wektor naj = do_odwiedzenia[0];
+        wektor naj = do_odwiedzenia2[0];
         double najnaj = naj.heuryst_value;
-        for (auto & uuh : do_odwiedzenia) {
+        for (auto& uuh : do_odwiedzenia2) {
             if ((uuh.heuryst_value <= najnaj)) {
                 najnaj = uuh.heuryst_value;
                 naj = uuh;
             }
         }
-        for (auto& uuh2 : do_odwiedzenia) {
-            if (uuh2.x == naj.x && uuh2.y == naj.y) {
-                break;
-            }
-            pozycja++;
-        }
-        
-        x = naj.x;
-        y = naj.y;
-
-        odwiedzone.push_back(G[x][y]);
-        do_odwiedzenia.erase(do_odwiedzenia.begin()+pozycja);
-    }
-    /*G[x][y].identifier = 3; */
-
-    x = cel_x;
-    y = cel_y;
-
-    odwiedzone.clear();
-    do_odwiedzenia.clear();
-
-    odwiedzone.push_back(G[cel_x][cel_y]);
-
-    while ((x != start_x) || (y != start_y)) {
-
-        G[x][y].identifier = 3;
-
-        for (int i = 1; i < 5; i++) {
-            if ((i == 1) && (y + 1 <= wym2 - 1) && (G[x][y + 1].identifier != 5) && G[x][y + 1].czy_obliczony_koszt == true && czy_w_liscie(odwiedzone, G[x][y + 1]) == false) { // w górę
-                do_odwiedzenia.push_back(G[x][y + 1]);
-            }
-            i++;
-            if ((i == 2) && (x + 1 <= wym1 - 1) && (G[x + 1][y].identifier != 5) && G[x + 1][y].czy_obliczony_koszt == true && czy_w_liscie(odwiedzone, G[x + 1][y]) == false) { // w prawo
-                do_odwiedzenia.push_back(G[x + 1][y]);
-            }
-            i++;
-            if ((i == 3) && (y - 1 >= 0) && (G[x][y - 1].identifier != 5) && G[x][y - 1].czy_obliczony_koszt == true && czy_w_liscie(odwiedzone, G[x][y - 1]) == false) { // w dół
-                do_odwiedzenia.push_back(G[x][y - 1]);
-            }
-            i++;
-            if ((i == 4) && (x - 1 >= 0) && (G[x - 1][y].identifier != 5) && G[x - 1][y].czy_obliczony_koszt == true && czy_w_liscie(odwiedzone, G[x - 1][y]) == false) { // w lewo
-                do_odwiedzenia.push_back(G[x - 1][y]);
-            }
-            i++;
-        }
-
-        int pozycja = 0;
-        wektor naj = do_odwiedzenia[0];
-        double najnaj = naj.heuryst_value;
-        for (auto& uuh : do_odwiedzenia) {
-            if ((uuh.heuryst_value < najnaj)) {
-                najnaj = uuh.heuryst_value;
-                naj = uuh;
-            }
-        }
-        for (auto& uuh2 : do_odwiedzenia) {
+        for (auto& uuh2 : do_odwiedzenia2) {
             if (uuh2.x == naj.x && uuh2.y == naj.y) {
                 break;
             }
             pozycja++;
         }
 
-        x = naj.x;
-        y = naj.y;
+        wektor current = do_odwiedzenia2[pozycja];
+        do_odwiedzenia2.clear();
 
-        odwiedzone.clear();
+        if (current.x == start_x && current.y == start_y) {
+            // Destination reached
+            break;
+        }
 
-        odwiedzone.push_back(G[x][y]);
+        for (int i = 1; i <= 4; ++i) {
+            int new_x = current.x;
+            int new_y = current.y;
 
-        do_odwiedzenia.erase(do_odwiedzenia.begin() + pozycja);
+
+            switch (i) {
+            case 1: // Down
+                new_y -= 1;
+                break;
+            case 2: // Left
+                new_x -= 1;
+                break;
+            case 3: // Up
+                new_y += 1;
+                break;
+            case 4: // Right
+                new_x += 1;
+                break;
+            }
+
+            if (new_x >= 0 && new_x < wym1 && new_y >= 0 && new_y < wym2 &&
+                G[new_x][new_y].identifier != 5 && !G[new_x][new_y].czy_odwiedzone_back && G[new_x][new_y].czy_odwiedzone) {
+                    
+                do_odwiedzenia2.push_back(G[new_x][new_y]);
+            }
+        }
+        G[current.x][current.y].czy_odwiedzone_back = true;
+        G[current.x][current.y].identifier = 3;
+
     }
-    G[x][y].identifier = 3;
-}   
-
-void wypisz(wektor G[][wym1]) {
-    cout << "\nWypisujemy na ekran\n\n";
-    for (int i = 0; i < wym2; i++)
-    {
-        for (int j = 0; j < wym1; j++)
-        {
-            cout << " " << G[j][wym1 - i - 1].identifier;
-
-        }cout << "\n";
-    }
+    G[start_x][start_y].identifier = 3;
+    return 0;
 }
 
 
+void wypisz(wektor G[][wym1]) {
+    cout << "\nWypisujemy na ekran\n\n";
+    for (int i = 0; i < wym2; i++) {
+        for (int j = 0; j < wym1; j++) {
+            cout << " " << G[j][wym1 - i - 1].identifier;
+        }
+        cout << "\n";
+    }
+}
 
-int main(void) {
-
+int main() {
     cout << "Wczytywanie danych z pliku\n";
 
     string nazwap = "grid.txt";
 
-    double G[wym1][wym1];
     wektor grid_ale_lepszy[wym1][wym1];
 
-    std::ifstream plik(nazwap.c_str());
+    ifstream plik(nazwap.c_str());
 
-    for (unsigned int i = 0; i < wym2; i++)
-    {
-        for (unsigned int j = 0; j < wym1; j++)
-        {
+    for (unsigned int i = 0; i < wym2; i++) {
+        for (unsigned int j = 0; j < wym1; j++) {
             plik >> grid_ale_lepszy[j][wym2 - i - 1].identifier;
             grid_ale_lepszy[j][wym2 - i - 1].x = j;
             grid_ale_lepszy[j][wym2 - i - 1].y = wym2 - i - 1;
@@ -254,18 +196,26 @@ int main(void) {
 
     wypisz(grid_ale_lepszy);
 
-    int start_x = 0;
-    int start_y = 7;
-    //grid_ale_lepszy[start_x][start_y].identifier = 9;
-    int cel_x = 6;
-    int cel_y = 8;
-    //grid_ale_lepszy[cel_x][cel_y].identifier = 8;
+    int start_x = 7;
+    int start_y = 0;
+    int cel_x = 4;
+    int cel_y = 4;
 
-    A_star(grid_ale_lepszy, start_x, start_y, cel_x, cel_y);
+    int wynik = A_star(grid_ale_lepszy, start_x, start_y, cel_x, cel_y);
 
-    wypisz(grid_ale_lepszy);
-
+    if (wynik == 0) {
+        printf("\nPomyślnie znaleziono droge!\n");
+        wypisz(grid_ale_lepszy);
+    }
+    else if (wynik == 1) {
+        printf("\nNie udalo sie znalezc drogi - miejsce startowe odciete od celu\n");
+    }
+    else if (wynik == 2) {
+        printf("\nCel lub miejsce startowe nie moze znajdowac sie na scianie\n");
+    }
+    else if (wynik == 3) {
+        printf("\nCel lub miejsce startowe nie moze znajdowac sie poza mapa\n");
+    }
 
     return 0;
 }
-
